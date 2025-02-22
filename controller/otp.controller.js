@@ -1,5 +1,46 @@
 const transporter = require("../config/smtp.config");
 const otpModel = require("../model/otp.model");
+const { SendEmailCommand } = require("@aws-sdk/client-ses");
+const { sesClient } =  require("../util/sesClient");
+
+
+
+const createSendEmailCommand = (fromAddress,toAddress,  body) => {
+  console.log("body in createSendEmailCommand",body)
+  return new SendEmailCommand({
+    Destination: {
+      ToAddresses: [toAddress],
+    },
+    Message: {
+      Body: {
+        Text: {
+          Charset: "UTF-8",
+          Data: body,
+        },
+      },
+      Subject: {
+        Charset: "UTF-8",
+        Data: "EMAIL_SUBJECT",
+      },
+    },
+    Source: fromAddress,
+  });
+};
+
+const run = async ( from,to, body) => {
+  console.log("run",body)
+  const sendEmailCommand = createSendEmailCommand(from,to,  body);
+
+  try {
+    return await sesClient.send(sendEmailCommand);
+  } catch (error) {
+    if (error.name === "MessageRejected") {
+      console.error("Message Rejected:", error);
+      return error;
+    }
+    throw error;
+  }
+};
 
 exports.otpSender = async (req, res) => {
   console.log("-------Starting new otp sending--------", req.body.to, req.body);
@@ -21,13 +62,7 @@ exports.otpSender = async (req, res) => {
 
     let newOtp = await otpModel.create({ otp: OTP, email: req.body.to });
     console.log("newOtp", newOtp);
-    transporter.sendMail({
-      // fnder addressrom: "", // se\
-      from: req.body.from || "rapidosh77@outlook.com",
-      to: req.body.to, // list of receivers
-      subject: req.body.subject || "Otp from my app", // Subject lin
-      text: OTP, // plain text body
-    });
+  await  run("foodDelivery@rapidosh.in",req.body.to,OTP)
     res.status(200).send("Success");
   } catch (err) {
     console.log(err);
